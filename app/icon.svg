@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Unlike the app itself (which defaults to light and ignores the OS
+       setting), the tab icon MUST follow prefers-color-scheme: it sits in the
+       browser's chrome, not on our page, and ink-on-dark-toolbar is invisible. -->
+  <style>
+    path { fill: #1A1A2E; }
+    @media (prefers-color-scheme: dark) { path { fill: #EDE9E0; } }
+  </style>
+  <path d="M3.4 18.9 L5.0 21.0 C11.0 20.3 16.9 15.1 21.9 3.5 C16.1 12.3 10.2 17.2 3.4 18.9 Z"/>
+</svg>

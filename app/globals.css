@@ -1,0 +1,321 @@
+/* ============================================================
+   Inkline — "Editorial Ink"
+   app/globals.css  ·  Tailwind CSS v4, CSS-first (no tailwind.config.js)
+   Fonts come from next/font/google in app/layout.tsx, exposing:
+   --font-fraunces --font-geist --font-newsreader --font-geist-mono
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* Manual dark-mode: toggle `class="dark"` on <html> from the nav.
+   `@custom-variant dark` lets you write `dark:*` utilities against it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Design tokens : LIGHT (Daylight / paper) ---------- */
+:root {
+  --paper: #F7F4ED;          /* app background — never pure white */
+  --surface: #FDFBF6;        /* cards */
+  --surface-2: #FFFFFF;      /* writing page, inputs */
+  --ink: #1A1A2E;            /* primary text AND primary dark buttons */
+  --ink-soft: #3B3A52;
+  --muted: #6B6862;          /* warm gray */
+  --faint: #9A968D;
+  --line: #E7E2D8;           /* hairline */
+  --line-strong: #D8D2C4;
+  --coral: #E0613E;          /* signature accent */
+  --coral-soft: #F6E3DA;     /* accent tint bg */
+
+  --critical: #C1362F;       /* critical live errors */
+  --suggestion: #B8791C;     /* suggestions / amber */
+  --positive: #2E7D5B;       /* success / strengths */
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 9999px;
+
+  --shadow-float: 0 12px 32px -12px rgba(26, 26, 46, .18);
+
+  color-scheme: light;
+}
+
+/* ---------- Design tokens : DARK (Nightshift / midnight ink) ---------- */
+.dark {
+  --paper: #121118;
+  --surface: #1A1826;
+  --surface-2: #211F2E;
+  --ink: #EDE9E0;            /* paper-white */
+  --ink-soft: #C7C3BA;
+  --muted: #928E97;
+  --faint: #6A6675;
+  --line: #2A2836;
+  --line-strong: #39364A;
+  --coral: #EF7350;
+  --coral-soft: #3A2018;
+
+  --critical: #E5675E;
+  --suggestion: #D79B3F;
+  --positive: #57B389;
+
+  --shadow-float: 0 16px 40px -14px rgba(0, 0, 0, .6);
+
+  color-scheme: dark;
+}
+
+/* Light is the deliberate default: the product is "ink on warm paper", and the
+   first impression should be the page, not the night shift. Dark is opt-in and
+   applies only when the nav toggle has written `.dark` onto <html> — the system
+   `prefers-color-scheme` is intentionally NOT consulted. */
+
+/* ---------- Map tokens -> Tailwind utilities ----------
+   `inline` reads the live var() so utilities follow light/dark automatically:
+   bg-paper, text-ink, text-coral, border-line, rounded-md, font-display, … */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-critical: var(--critical);
+  --color-suggestion: var(--suggestion);
+  --color-positive: var(--positive);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-pill: var(--r-pill);
+
+  --shadow-float: var(--shadow-float);
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-read: var(--font-newsreader), Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* type scale (~1.25) */
+  --text-2xs: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
+  --text-5xl: 3.75rem;
+}
+
+/* ---------- Base ----------
+   NOTE: written as plain (unlayered) CSS on purpose. In this Tailwind v4 setup
+   user-authored `@layer base/components/utilities` blocks are dropped, so these
+   would vanish. Unlayered class rules share utilities' specificity but win by
+   layer order, which is fine here. Global `a` is scoped with :where(:not([class]))
+   so it never overrides `text-*` utilities on classed links. */
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a:where(:not([class])) { color: var(--coral); text-decoration: none; }
+a:where(:not([class])):hover { color: var(--ink); }
+::selection { background: color-mix(in srgb, var(--coral) 22%, transparent); }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- Reusable component primitives ---------- */
+  /* Eyebrow — Geist Mono, uppercase, tracked */
+  .eyebrow {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .13em;
+    color: var(--muted);
+    font-size: .72rem;
+  }
+  .eyebrow-coral { color: var(--coral); }
+
+  /* Fraunces display heading */
+  .display {
+    font-family: var(--font-display);
+    font-variation-settings: 'opsz' 96, 'SOFT' 0, 'WONK' 1;
+    font-weight: 420;
+    letter-spacing: -.015em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  /* Buttons — padding/size set per use with utilities */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--font-sans); font-weight: 500; font-size: .95rem; line-height: 1;
+    border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent;
+    transition: filter .15s ease, border-color .15s ease, color .15s ease, background .15s ease;
+    text-decoration: none;
+  }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn-ink { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn-ink:not(:disabled):hover { filter: brightness(.9); color: var(--paper); }
+  .btn-outline { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+  .btn-outline:not(:disabled):hover { border-color: var(--coral); color: var(--coral); }
+  .btn-positive { background: var(--positive); color: #fff; border-color: var(--positive); font-weight: 600; }
+  .btn-positive:not(:disabled):hover { filter: brightness(.95); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--ink-soft); border-color: transparent; }
+  .btn-ghost:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+
+  /* Cards */
+  .card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+  .card-lg { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+
+  /* Form controls */
+  .field {
+    width: 100%; font-family: var(--font-sans); font-size: .95rem; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    padding: 11px 13px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .field::placeholder { color: var(--faint); }
+  .field:focus { border-color: var(--coral); box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 22%, transparent); }
+  select.field { appearance: none; padding-right: 36px; cursor: pointer; }
+  textarea.field { resize: vertical; line-height: 1.8; }
+
+  /* Chips / badges */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-sans);
+    font-size: .74rem; font-weight: 500; padding: 3px 10px; border-radius: 99px;
+  }
+  .chip-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .chip-positive { background: color-mix(in srgb, var(--positive) 12%, transparent); color: var(--positive); }
+  .chip-neutral { background: color-mix(in srgb, var(--muted) 12%, transparent); color: var(--muted); }
+  .chip-critical { background: color-mix(in srgb, var(--critical) 12%, transparent); color: var(--critical); }
+  .chip-suggestion { background: color-mix(in srgb, var(--suggestion) 14%, transparent); color: var(--suggestion); }
+  .chip-cat { border-radius: var(--r-sm); background: var(--coral-soft); color: var(--coral); }
+
+  /* CEFR band pill (mono) */
+  .band {
+    font-family: var(--font-mono); font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+    padding: 4px 12px; border-radius: 99px; background: var(--coral-soft);
+    border: 1px solid var(--coral); color: var(--coral);
+  }
+
+  /* Card hover-lift (topic cards) */
+  .lift { transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s; }
+  .lift:hover { transform: translateY(-2px); border-color: var(--coral); box-shadow: var(--shadow-float); }
+
+  /* List row hover wash */
+  .row { transition: background .15s; border-radius: var(--r-sm); }
+  .row:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+
+/* ---------- Motion (signature choreography) ---------- */
+  @keyframes ink-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes ink-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes ink-shimmer { 0% { background-position: -140% 0; } 100% { background-position: 140% 0; } }
+  @keyframes ink-draw-underline { from { background-size: 0 100%; } to { background-size: 100% 100%; } }
+  @keyframes ink-pulse { 0%, 100% { opacity: .3; transform: scale(.82); } 50% { opacity: 1; transform: scale(1); } }
+  @keyframes ink-slidein { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+  @keyframes ink-fadein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ink-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+
+  /* one orchestrated entrance: apply to key blocks, stagger with delay */
+  .ink-enter { animation: ink-rise .5s cubic-bezier(.2, .7, .2, 1) both; }
+  .ink-enter-1 { animation-delay: .06s; }
+  .ink-enter-2 { animation-delay: .10s; }
+  .ink-enter-3 { animation-delay: .14s; }
+  .ink-enter-4 { animation-delay: .18s; }
+  .ink-fadein { animation: ink-fadein .25s ease both; }
+  .ink-slidein { animation: ink-slidein .28s cubic-bezier(.2,.7,.2,1) both; }
+  .ink-pop { animation: ink-pop .16s cubic-bezier(.2,.7,.2,1) both; }
+  .ink-pulse { animation: ink-pulse 1.2s ease-in-out infinite; }
+
+  .ink-skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--line) 37%, var(--surface) 63%);
+    background-size: 200% 100%;
+    animation: ink-shimmer 1.4s linear infinite;
+    border-radius: var(--r-sm);
+  }
+
+/* ============================================================
+   Editor writing surface — TipTap / ProseMirror
+   ============================================================ */
+.ProseMirror {
+  font-family: var(--font-read);
+  font-size: 1.15rem;
+  line-height: 1.85;
+  color: var(--ink);
+  padding: 32px clamp(24px, 5vw, 36px);
+  min-height: 340px;
+  outline: none;
+  caret-color: var(--coral);
+  -webkit-font-smoothing: antialiased;
+}
+.ProseMirror > * + * { margin-top: 1.1em; }
+.ProseMirror p { margin: 0; }
+.ProseMirror h1, .ProseMirror h2 {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 60, "WONK" 1;
+  font-weight: 480;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.ProseMirror :is(h1, h2) { margin-top: 1.4em; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.4rem; }
+.ProseMirror ul { list-style: disc; }
+.ProseMirror ol { list-style: decimal; }
+.ProseMirror blockquote {
+  border-left: 2px solid var(--coral);
+  padding-left: 16px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+/* placeholder (TipTap Placeholder extension) */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ---------- Live issue marks ---------- */
+/* Wavy underline + whisper-faint tint wash. Two severities, both themeable. */
+.issue-mark {
+  border-radius: 2px;
+  padding: 0 .5px;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.6px;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  animation: ink-draw-underline .35s cubic-bezier(.2, .7, .2, 1) both;
+}
+.issue-mark--critical {
+  text-decoration-color: var(--critical);
+  background-image: linear-gradient(color-mix(in srgb, var(--critical) 9%, transparent), color-mix(in srgb, var(--critical) 9%, transparent));
+}
+.issue-mark--suggestion {
+  text-decoration-color: var(--suggestion);
+  background-image: linear-gradient(color-mix(in srgb, var(--suggestion) 11%, transparent), color-mix(in srgb, var(--suggestion) 11%, transparent));
+}
+.issue-mark--critical:hover { background-color: color-mix(in srgb, var(--critical) 16%, transparent); }
+.issue-mark--suggestion:hover { background-color: color-mix(in srgb, var(--suggestion) 18%, transparent); }
+
+/* ============================================================
+   Accessibility — always honor reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
