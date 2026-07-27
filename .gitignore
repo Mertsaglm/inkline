@@ -65,7 +65,11 @@ venv/
 
 # Local-only working folders. Not part of the app — the build passes without
 # them — and deliberately never published:
-#   gereksiz/         finished design intermediates (briefs, raw tool exports)
-#   Proje Yardımcısı/ portable AI-assistant context, personal notes
+#   gereksiz/          finished design intermediates (briefs, raw tool exports)
+#   Proje Yardımcısı*/ portable AI-assistant context, personal notes
+# The glob is deliberate: the folder is currently named
+# "Proje Yardımcısı - inkline", and an exact-name entry silently stops matching
+# the moment the folder is renamed — the contents then show up as untracked and
+# one `git add .` publishes them.
 /gereksiz/
-/Proje Yardımcısı/
+/Proje Yardımcısı*/

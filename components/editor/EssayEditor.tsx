@@ -395,14 +395,17 @@ export default function EssayEditor({
       );
       setPopover(null);
     }
+    // Supabase sorgu kurucuları tembel "thenable"dır: await edilmezse istek
+    // hiç gönderilmez ve tercih sessizce kaydedilmemiş olur.
     const supabase = createClient();
-    await supabase.auth.getUser().then(({ data }) => {
-      if (data.user)
-        supabase
-          .from("profiles")
-          .update({ ai_warnings_enabled: next })
-          .eq("user_id", data.user.id);
-    });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user)
+      await supabase
+        .from("profiles")
+        .update({ ai_warnings_enabled: next })
+        .eq("user_id", user.id);
     if (next && editor) runCheck(editor);
   };
 

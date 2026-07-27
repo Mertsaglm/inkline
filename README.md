@@ -71,10 +71,20 @@ npm run dev
 > `NEXT_PUBLIC_*` değişkenleri değiştirdikten sonra dev sunucusunu **yeniden başlat**.
 > Prod build (`next build`) mutlaka env ayarlandıktan **sonra** alınmalı.
 
+### 6) Kontrol
+```bash
+npm run verify     # tsc --noEmit && vitest run && next build
+```
+Test paketi env istemez; `npm test` boş bir makinede de çalışır.
+
 ## Vercel'e deploy
 
-Repo: [github.com/Mertsaglm/Inkline](https://github.com/Mertsaglm/Inkline) →
+Repo: [github.com/Mertsaglm/inkline](https://github.com/Mertsaglm/inkline) →
 Vercel'de **Add New → Project → Import**.
+
+> Vercel projesi zaten varsa yeniden kurmana gerek yok: **Settings → Git →
+> Disconnect**, sonra doğru repoyu bağla. Environment variables, domain'ler ve
+> proje ayarları projede kalır; yeni proje açarsan hepsini baştan girersin.
 
 | Alan | Değer |
 | --- | --- |
@@ -172,6 +182,46 @@ notlarda değer `null`'dır ve rozet çizilmez.
 Canlı kontrol yazım durunca (debounce) çalışır; uyarılar kapalıyken **hiç AI
 çağrısı gitmez**.
 
+## Testler
+
+```bash
+npm test              # 600+ test, ~4 sn
+npm run test:watch    # geliştirirken
+npm run test:coverage # kapsam raporu → coverage/
+npm run verify        # tsc --noEmit && vitest run && next build
+```
+
+Vitest + jsdom + Testing Library. Ağ, veritabanı ve AI çağrılarının hepsi taklit;
+paket **env değişkeni istemez** ve gerçek bir API anahtarı harcamaz.
+
+| Klasör | Neyi korur |
+| --- | --- |
+| `tests/unit/` | CEFR matematiği, AI model zinciri + failover, prompt kuralları, Zod şemaları, anonim oturum |
+| `tests/api/` | Sekiz route'un tamamı: yetki kapıları, doğrulama, durum kodları, DB yan etkileri |
+| `tests/contracts/` | `AGENTS.md` kurallarının çalıştırılabilir hâli + SQL↔TS↔Zod↔route tutarlılığı |
+| `tests/pages/` | Sunucu sayfalarının veri türetimi, istemci sayfalarının akışları |
+| `tests/editor/` | İşaret konumlandırma ve "düzeltmeyi uygula / geri al" zinciri |
+| `tests/components/` | Model rozeti, nav, tema, kurulum ekranı, marka işareti |
+
+Kapsam: **%98.6** satır — route'ların ve `lib/`'in tamamı %100.
+
+İki grup öne çıkıyor, çünkü koruduklarının bozulması **ekranda görünmüyor**:
+
+- **`contracts/`** — `AGENTS.md`'deki kuralları metin olarak değil, test olarak
+  tutar: Tailwind v4'ün sessizce düşürdüğü `@layer` blokları, `@ai-sdk`'nin tek
+  giriş noktası, giriş ekranı eklenmemesi, `prefers-color-scheme` yasağı, `tr-TR`
+  tarihleri, RLS'siz tablo bırakılmaması, `.env.example`'da anahtar kalmaması.
+  Ayrıca `kind` / `severity` / `status` / CEFR gibi değerlerin SQL CHECK kısıtı,
+  TypeScript union'ı, Zod enum'u ve route beyaz listesi arasında **ayrışmadığını**
+  doğrular — TypeScript bu ayrışmayı yakalayamaz, sorun üretimde Postgres 500'ü
+  olarak çıkar.
+- **`api/check.test.ts` → `safeReplacement`** — `replacement` alanı öğrencinin
+  essay'ine birebir yazıldığı için, model açıklama/alternatif dökerse metin
+  bozulur. Guard'ın tırnak, satır sonu ve uzunluk kontrolleri tek tek test edilir.
+
+Ayrıntılı gerekçeler ve "bir test kırmızıya döndüğünde ne yapmalı":
+[tests/README.md](tests/README.md).
+
 ## Mimari — kısa harita
 
 ```
@@ -196,6 +246,8 @@ supabase/migrations/{0001_init,0002_ai_model}.sql
 scripts/render-icons.py      # SVG mark'tan favicon/app-icon PNG üretir
 design/LOGO_SPEC.md          # gönderilen logonun spesifikasyonu
 vercel.json                  # fonksiyon bölgesi: fra1
+vitest.config.ts             # test yapılandırması (TZ=UTC, @/ alias)
+tests/                       # 600+ test — bkz. tests/README.md
 ```
 
 ## Marka
@@ -225,5 +277,12 @@ bağımlı değildir:
 
 - **`gereksiz/`** — işi bitmiş tasarım ara çıktıları (brief'ler, ham Claude Design
   ve Stitch export'ları). Ayrıntı: `gereksiz/README.md`.
-- **`Proje Yardımcısı/`** — projeden bağımsız, taşınabilir AI asistan bağlamı
-  ("Usta" sistemi: `AGENTS.md` + `ai/` hafıza dosyaları).
+- **`Proje Yardımcısı - inkline/`** — projeden bağımsız, taşınabilir AI asistan
+  bağlamı ("Usta" sistemi: kendi `AGENTS.md`'si + `ai/` hafıza dosyaları).
+  Kişisel notlar içerir; `.gitignore`'daki kural `/Proje Yardımcısı*/` olarak
+  glob'lu yazılıdır, çünkü tam adla yazılan bir kural klasör yeniden
+  adlandırıldığı anda sessizce eşleşmeyi bırakıyor.
+
+> Kökteki `AGENTS.md` (kod kuralları) ile Usta klasöründeki `AGENTS.md`
+> (asistanın kimliği ve oturum ritüeli) **iki ayrı dosyadır ve birleştirilmez** —
+> gerekçe: Usta klasöründeki `ai/PROJECT.md`.
