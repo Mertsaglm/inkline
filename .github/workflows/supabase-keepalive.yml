@@ -41,9 +41,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Deliberately no 'set -e': a failing curl must be diagnosed here, not turned
-          # into a bare "Process completed with exit code 6" by the shell.
-          set -uo pipefail
+          # GitHub runs this step as 'bash -e {0}'. Without 'set +e' the first failing
+          # curl kills the step instantly with a bare "Process completed with exit code
+          # 6" and no diagnosis at all — which is exactly what happened on 2026-08-17.
+          set +e
+          set -u
 
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
             echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY are not set on this repository."
@@ -52,41 +54,56 @@ jobs:
 
           base="${SUPABASE_URL%/}"
           reached=0
-          failed_tables=""
+          dns_fail=0
+          problems=""
 
           for table in topics profiles essays; do
+            ok=0
             for attempt in 1 2 3; do
               code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
                 "$base/rest/v1/$table?select=*&limit=1" \
                 -H "apikey: $SUPABASE_ANON_KEY" \
                 -H "Authorization: Bearer $SUPABASE_ANON_KEY")
               rc=$?
-              if [ "$rc" -eq 0 ] && [ "$code" != "000" ]; then
-                # 200 (empty under RLS), 401 and 403 all mean the request reached the
-                # database, which is what resets the inactivity timer.
+              # 200 (empty under RLS), 401 and 403 all mean the request reached the
+              # database, which is what resets the inactivity timer. A 5xx comes from
+              # Cloudflare while the project itself is down/booting — that does not count.
+              if [ "$rc" -eq 0 ] && [ "$code" != "000" ] && [ "$code" -lt 500 ]; then
                 echo "$table -> HTTP $code"
-                reached=$((reached + 1))
+                ok=1
                 break
               fi
-              echo "$table -> curl failed (exit $rc), attempt $attempt/3"
+              if [ "$rc" -eq 6 ]; then
+                echo "$table -> hostname does not resolve (curl exit 6), attempt $attempt/3"
+                dns_fail=1
+              else
+                echo "$table -> curl exit $rc / HTTP $code, attempt $attempt/3"
+              fi
               [ "$attempt" -lt 3 ] && sleep 10
             done
-            if [ "$rc" -ne 0 ] || [ "$code" = "000" ]; then
-              failed_tables="$failed_tables $table"
+            if [ "$ok" -eq 1 ]; then
+              reached=$((reached + 1))
+            else
+              problems="$problems $table"
             fi
           done
 
           if [ "$reached" -eq 0 ]; then
-            echo "::error::No response from the Supabase project. curl exit 6 means the"
-            echo "::error::hostname does not resolve — for Supabase that almost always means"
-            echo "::error::the project is PAUSED or deleted, not a network glitch."
-            echo "::error::Fix: open https://supabase.com/dashboard and restore the project"
-            echo "::error::(possible for 90 days after it is paused). Otherwise check that the"
-            echo "::error::SUPABASE_URL secret is exactly https://<project-ref>.supabase.co"
+            if [ "$dns_fail" -eq 1 ]; then
+              echo "::error::The Supabase hostname does not resolve. For Supabase this almost"
+              echo "::error::always means the project is PAUSED or deleted, not a network glitch."
+              echo "::error::Fix: open https://supabase.com/dashboard and restore the project"
+              echo "::error::(possible for 90 days after it is paused). If the project is fine,"
+              echo "::error::check that SUPABASE_URL is exactly https://<project-ref>.supabase.co"
+            else
+              echo "::error::Supabase answered but the database served nothing (5xx / timeout)."
+              echo "::error::The project is probably still booting after a restore, or is down."
+              echo "::error::Check https://supabase.com/dashboard and https://status.supabase.com"
+            fi
             exit 1
           fi
 
-          if [ -n "$failed_tables" ]; then
-            echo "::warning::Some reads did not go through:$failed_tables"
+          if [ -n "$problems" ]; then
+            echo "::warning::These reads did not go through:$problems"
           fi
           echo "Keep-alive OK — $reached/3 reads reached the database."
