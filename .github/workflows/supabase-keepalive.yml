@@ -1,38 +1,92 @@
 name: Supabase keep-alive
 
-# Free-tier Supabase projects pause after 7 days with no activity, then can be
-# permanently deleted 90 days after that. This workflow pings the project twice a
-# week (Mon + Thu) so the 7-day inactivity timer never elapses. A single anon REST
-# request counts as project activity — RLS still returns nothing, so no data leaks.
+# Free-tier Supabase projects are paused when the database sees too little activity
+# over a rolling 7-day window. Supabase's guidance is explicit: "typically a few user
+# requests to the database each day over the previous week is enough to keep the
+# project from being paused" (https://supabase.com/docs/guides/platform/free-project-pausing).
+# Two pings a week — the schedule this workflow used before — was NOT enough: every
+# ping returned HTTP 200 and the project was paused anyway on 2026-08-17.
+# So now: three runs a day, three table reads per run.
 #
 # Setup (one time):
-#   Repo → Settings → Secrets and variables → Actions → New repository secret
-#     SUPABASE_URL       = https://<your-ref>.supabase.co
-#     SUPABASE_ANON_KEY  = <your anon / publishable key>
-#   Scheduled runs fire only from the default branch, so this file must land on it.
+#   Repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+#     SUPABASE_URL       = https://<project-ref>.supabase.co
+#     SUPABASE_ANON_KEY  = <anon / publishable key>
+#
+# Notes:
+#   * Scheduled runs only fire from the default branch, so this file must live there.
+#   * GitHub disables scheduled workflows in repos with no commits for 60 days; a push
+#     or a manual "Run workflow" re-arms them.
+#   * Reads go through RLS with the anon key, so nothing is exposed — an empty result
+#     is still a real query against the database, which is what counts as activity.
 
 on:
   schedule:
-    - cron: "0 9 * * 1,4" # 09:00 UTC every Monday and Thursday (max gap 4 days < 7)
-  workflow_dispatch: {}    # lets you trigger a run by hand to test it
+    - cron: "17 5 * * *"  # 05:17 UTC
+    - cron: "23 12 * * *" # 12:23 UTC
+    - cron: "41 19 * * *" # 19:41 UTC
+  workflow_dispatch: {}   # lets you trigger a run by hand to test it
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Ping Supabase REST (counts as activity)
-        run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/topics?select=id&limit=1" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
-          echo "HTTP $code"
-          # 200 (empty due to RLS) and 401/403 all mean the request reached the DB,
-          # which is what resets the inactivity timer. Only a network failure is fatal.
-          if [ "$code" = "000" ]; then
-            echo "No response from Supabase — check SUPABASE_URL secret." >&2
-            exit 1
-          fi
+      - name: Ping Supabase REST (counts as database activity)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          # Deliberately no 'set -e': a failing curl must be diagnosed here, not turned
+          # into a bare "Process completed with exit code 6" by the shell.
+          set -uo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY are not set on this repository."
+            exit 1
+          fi
+
+          base="${SUPABASE_URL%/}"
+          reached=0
+          failed_tables=""
+
+          for table in topics profiles essays; do
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
+                "$base/rest/v1/$table?select=*&limit=1" \
+                -H "apikey: $SUPABASE_ANON_KEY" \
+                -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+              rc=$?
+              if [ "$rc" -eq 0 ] && [ "$code" != "000" ]; then
+                # 200 (empty under RLS), 401 and 403 all mean the request reached the
+                # database, which is what resets the inactivity timer.
+                echo "$table -> HTTP $code"
+                reached=$((reached + 1))
+                break
+              fi
+              echo "$table -> curl failed (exit $rc), attempt $attempt/3"
+              [ "$attempt" -lt 3 ] && sleep 10
+            done
+            if [ "$rc" -ne 0 ] || [ "$code" = "000" ]; then
+              failed_tables="$failed_tables $table"
+            fi
+          done
+
+          if [ "$reached" -eq 0 ]; then
+            echo "::error::No response from the Supabase project. curl exit 6 means the"
+            echo "::error::hostname does not resolve — for Supabase that almost always means"
+            echo "::error::the project is PAUSED or deleted, not a network glitch."
+            echo "::error::Fix: open https://supabase.com/dashboard and restore the project"
+            echo "::error::(possible for 90 days after it is paused). Otherwise check that the"
+            echo "::error::SUPABASE_URL secret is exactly https://<project-ref>.supabase.co"
+            exit 1
+          fi
+
+          if [ -n "$failed_tables" ]; then
+            echo "::warning::Some reads did not go through:$failed_tables"
+          fi
+          echo "Keep-alive OK — $reached/3 reads reached the database."
